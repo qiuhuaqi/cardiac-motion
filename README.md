@@ -2,11 +2,10 @@
 
 ## Introduction
 This repository contains code used in the paper presented in [STACOM workshop, MICCAI 2019](http://stacom2019.cardiacatlas.org/):   
-**"Deep Learning for Cardiac Motion Estimation: Supervised vs. Unsupervised Training"**  
-You can find the paper and poster in the `paper_poster` directory of this repo.
+- Qiu, H., Qin, C., Le Folgoc, L., Hou, B., Schlemper, J., Rueckert, D.: Deep Learning for Cardiac Motion Estimation: Supervised vs. Unsupervised Training. In: Statistical Atlases and Computational Models of the Heart. Multi-Sequence CMR Segmentation, CRT-EPiggy and LV Full Quantification Challenges. pp. 186–194. Springer International Publishing (2020).
+[link to paper](https://link.springer.com/chapter/10.1007/978-3-030-39074-7_20)
 
-(Official link to the paper will be made available here once published.)
-
+You can also find the paper and poster in the `paper_poster` directory of this repo.
 
 ## Instructions
 ### Dependencies
