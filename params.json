@@ -1,12 +1,16 @@
 {
     "network": "BaseNet",
-    "loss_fn": "huber",
+    "sim_loss": "MSE",
+    "reg_loss": "huber_spt",
+    "sim_weight": 1.0,
+    "reg_weight": 1e-4,
+    "learning_rate": 1e-4,
 
-    "train_data_path": "data/train",
-    "val_data_path": "data/val",
-    "eval_data_path": "data/test",
+    "train_data_path": "../data/ukbb/train",
+    "val_data_path": "../data/ukbb/val",
+    "eval_data_path": "../data/ukbb/test",
     "seq": "sa",
-    "augment": false,
+    "label_prefix": "label",
 
     "batch_size": 1,
     "num_epochs": 500,
@@ -16,12 +20,8 @@
 
     "save_checkpoint_epochs": 10,
     "val_epochs": 10,
-    "save_summary_steps": 5,
-    "save_result_epochs": 50,
-    "fps": 20,
-
-    "huber_spatial": 1e-3,
-    "huber_temporal": 0,
-    "learning_rate": 1e-4
+    "save_summary_steps": 1,
+    "save_result_epochs": 10,
+    "fps": 20
 }
 

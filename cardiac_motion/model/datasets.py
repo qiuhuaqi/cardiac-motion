@@ -4,73 +4,7 @@ import os.path as path
 import random
 import numpy as np
 import nibabel as nib
-import torch
 import torch.utils.data as data
-
-
-class CardiacMR_2D(data.Dataset):
-    """
-    Training dataset. Uses the first frame in a sequence as target.
-    """
-    def __init__(self, data_path, seq='sa',  seq_length=20, augment=False, transform=None):
-        # super(TrainDataset, self).__init__()
-        super().__init__()  # this syntax is allowed in Python3
-
-        self.data_path = data_path
-        self.dir_list = [dir_ for dir_ in sorted(os.listdir(self.data_path))]
-        self.seq = seq
-        self.seq_length = seq_length
-        self.augment = augment
-        self.transform = transform
-
-    def __getitem__(self, index):
-        """
-        Load and pre-process the input image.
-
-        Args:
-            index: index into the dir list
-
-        Returns:
-            target: target image, Tensor of size (1, H, W)
-            source: source image sequence, Tensor of size (seq_length, H, W)
-
-        """
-
-        # update the seed to avoid workers sample the same augmentation parameters
-        if self.augment:
-            np.random.seed(datetime.datetime.now().second + datetime.datetime.now().microsecond)
-
-        # load nifti into array
-        file_path = os.path.join(self.data_path, self.dir_list[index], self.seq + '.nii.gz')
-        nim = nib.load(file_path)
-        image_raw = nim.get_data()
-
-        # random select a z-axis slice and transpose into (T, H, W)
-        slice_num = random.randint(0, image_raw.shape[-2] - 1)
-        image = image_raw[:, :, slice_num, :].transpose(2, 0, 1).astype(np.float32)
-
-        # define source and target images:
-        #   target images are copies of the ED frame (extended later on GPU to save memory)
-        target = image[np.newaxis, 0, :, :]  # (1, H, W)
-
-        #   source images are a sequence of params.seq_length frames
-        if image.shape[0] > self.seq_length:
-            start_frame_idx = random.randint(0, image.shape[0] - self.seq_length)
-            end_frame_idx = start_frame_idx + self.seq_length
-            source = image[start_frame_idx:end_frame_idx, :, :]  # (seq_length, H, W)
-        else:  # if the sequence is shorter than seq_length, use the whole sequence
-            print("Warning: data sequence is shorter than set sequence length")
-            source = image[1:, :, :]  # (T-1, H, W)
-
-        # transformation functions expect input shaped (N, H, W)
-        if self.transform:
-            target = self.transform(target)
-            source = self.transform(source)
-
-        return target, source
-
-    def __len__(self):
-        return len(self.dir_list)
 
 
 class CardiacMR_2D_UKBB(data.Dataset):
@@ -243,7 +177,7 @@ class CardiacMR_2D_Inference_UKBB(data.Dataset):
         self.seq_length = self.image_seq.shape[-1]
 
     def __getitem__(self, idx):
-        """Return all slices of one frame in a sequence"""
+        """Returns volume pairs of two consecutive frames in a sequence"""
 
         target = self.image_seq[:, :, :, 0].transpose(2, 0, 1)
         source = self.image_seq[:, :, :, idx].transpose(2, 0, 1)
@@ -258,6 +192,62 @@ class CardiacMR_2D_Inference_UKBB(data.Dataset):
         return self.seq_length
 
 
-class CardiacEcho_3D(data.Dataset):
-    pass
+class CardiacMR_2D(data.Dataset):
+    """
+    Training dataset. Uses the first frame in a sequence as target.
+    """
+    def __init__(self, data_path, seq='sa',  seq_length=20, augment=False, transform=None):
+        # super(TrainDataset, self).__init__()
+        super().__init__()  # this syntax is allowed in Python3
+
+        self.data_path = data_path
+        self.dir_list = [dir_ for dir_ in sorted(os.listdir(self.data_path))]
+        self.seq = seq
+        self.seq_length = seq_length
+        self.augment = augment
+        self.transform = transform
+
+    def __getitem__(self, index):
+        """
+        Load and pre-process the input image.
+
+        Args:
+            index: index into the dir list
+
+        Returns:
+            target: target image, Tensor of size (1, H, W)
+            source: source image sequence, Tensor of size (seq_length, H, W)
+
+        """
+        # load nifti into array
+        file_path = os.path.join(self.data_path, self.dir_list[index], self.seq + '.nii.gz')
+        nim = nib.load(file_path)
+        image_raw = nim.get_data()
+
+        # random select a z-axis slice and transpose into (T, H, W)
+        slice_num = random.randint(0, image_raw.shape[-2] - 1)
+        image = image_raw[:, :, slice_num, :].transpose(2, 0, 1).astype(np.float32)
+
+        # define source and target images:
+        #   target images are copies of the ED frame (extended later on GPU to save memory)
+        target = image[np.newaxis, 0, :, :]  # (1, H, W)
+
+        #   source images are a sequence of params.seq_length frames
+        if image.shape[0] > self.seq_length:
+            start_frame_idx = random.randint(0, image.shape[0] - self.seq_length)
+            end_frame_idx = start_frame_idx + self.seq_length
+            source = image[start_frame_idx:end_frame_idx, :, :]  # (seq_length, H, W)
+        else:  # if the sequence is shorter than seq_length, use the whole sequence
+            print("Warning: data sequence is shorter than set sequence length")
+            source = image[1:, :, :]  # (T-1, H, W)
+
+        # transformation functions expect input shaped (N, H, W)
+        if self.transform:
+            target = self.transform(target)
+            source = self.transform(source)
+
+        return target, source
+
+    def __len__(self):
+        return len(self.dir_list)
 

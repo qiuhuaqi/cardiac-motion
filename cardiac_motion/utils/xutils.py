@@ -87,7 +87,7 @@ def set_summary_writer(model_dir, run_name):
     """
     summary_dir = os.path.join(model_dir, 'tb_summary', run_name)
     if not os.path.exists(summary_dir):
-        print("TensorboardX summary directory does not exist...\n Making directory {}".format(summary_dir))
+        print("TensorboardX summary directory does not exist...\n Creating directory {}".format(summary_dir))
         os.makedirs(summary_dir)
     else:
         print("TensorboardX summary directory already exist at {}...\nOverwritting!".format(summary_dir))

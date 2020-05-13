@@ -70,6 +70,3 @@ class ToTensor(object):
     def __call__(self, image):
         return torch.from_numpy(image)
 
-
-class AffineTransform(object):
-    pass

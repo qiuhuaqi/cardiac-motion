@@ -16,8 +16,7 @@ def diffusion_loss(dvf):
         diffusion_loss_2d: (Scalar) diffusion regularisation loss
         """
 
-    # finite difference as derivative
-    # (note the 1st column of dx and the first row of dy are not regularised)
+    # spatial derivatives
     dvf_dx = dvf[:, :, 1:, 1:] - dvf[:, :, :-1, 1:]  # (N, 2, H-1, W-1)
     dvf_dy = dvf[:, :, 1:, 1:] - dvf[:, :, 1:, :-1]  # (N, 2, H-1, W-1)
     return (dvf_dx.pow(2) + dvf_dy.pow(2)).mean()
@@ -36,10 +35,9 @@ def huber_loss_spatial(dvf):
         loss: (Scalar) Huber loss spatial
 
     """
-    eps = 0.0001 # numerical stability
+    eps = 1e-8 # numerical stability
 
-    # finite difference as derivative
-    # (note the 1st column of dx and the first row of dy are not regularised)
+    # spatial derivatives
     dvf_dx = dvf[:, :, 1:, 1:] - dvf[:, :, :-1, 1:]  # (N, 2, H-1, W-1)
     dvf_dy = dvf[:, :, 1:, 1:] - dvf[:, :, 1:, :-1]  # (N, 2, H-1, W-1)
     return ((dvf_dx.pow(2) + dvf_dy.pow(2)).sum(dim=1) + eps).sqrt().mean()
@@ -56,12 +54,12 @@ def huber_loss_temporal(dvf):
         loss: (Scalar) huber loss temporal
 
     """
-    eps = 0.0001  # numerical stability
+    eps = 1e-8  # numerical stability
 
-    # magnitude of the flow
+    # magnitude of the dvf
     dvf_norm = torch.norm(dvf, dim=1)  # (N, H, W)
 
-    # temporal finite derivatives, 1st order
+    # temporal derivatives, 1st order
     dvf_norm_dt = dvf_norm[1:, :, :] - dvf_norm[:-1, :, :]
     loss = (dvf_norm_dt.pow(2) + eps).sum().sqrt()
     return loss
@@ -70,7 +68,6 @@ def huber_loss_temporal(dvf):
 # --- construct the loss function --- #
 sim_losses = {"MSE": nn.MSELoss()}
 reg_losses = {"huber_spt": huber_loss_spatial,
-              "huber_temp": huber_loss_temporal,
               "diffusion": diffusion_loss}
 
 

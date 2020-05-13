@@ -7,15 +7,6 @@ import os
 from tabulate import tabulate
 
 
-parser = argparse.ArgumentParser()
-parser.add_argument('--parent_dir', default='experiments',
-                    help='Directory containing results of experiments')
-parser.add_argument('--result_file', default='test_results_best.json',
-                    help='Name of the files to search and collect result')
-parser.add_argument('--save_file', default='test_results.csv',
-                    help='Name of the file to save the results summary to.')
-
-
 def aggregate_metrics(parent_dir, metrics):
     """Aggregate the metrics of all experiments in folder `parent_dir`.
 
@@ -39,17 +30,7 @@ def aggregate_metrics(parent_dir, metrics):
         else:
             aggregate_metrics(os.path.join(parent_dir, subdir), metrics)
 
-
 def metrics_to_table(metrics):
-    # Get the headers from the first subdir. Assumes everything has the same metrics
-    headers = metrics[list(metrics.keys())[0]].keys()
-    table = [[subdir] + [values[h] for h in headers] for subdir, values in metrics.items()]
-    res = tabulate(table, headers, tablefmt='pipe')
-
-    return res
-
-
-def metrics_to_table_v2(metrics):
     # Get the headers from the first subdir. Assumes everything has the same metrics
     headers = metrics[list(metrics.keys())[0]].keys()
 
@@ -75,17 +56,32 @@ def metrics_to_table_v2(metrics):
 
 
 if __name__ == "__main__":
+    
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--parent_dir', 
+                        default=None,
+                        help='Directory containing the model dir of experiments.')
+    
+    parser.add_argument('--result_file', 
+                        default='test_results_best.json',
+                        help='Name of the JSON file storing metric results.')
+    
+    parser.add_argument('--save_file', 
+                        default='test_results.csv',
+                        help='Name of the file to save the collected metric results.')
+    
     args = parser.parse_args()
 
     # Aggregate metrics from args.parent_dir directory
     metrics = dict()
     aggregate_metrics(args.parent_dir, metrics)
-    table = metrics_to_table_v2(metrics)
+    table = metrics_to_table(metrics)
 
-    # Display the table to terminal
+    # Display the table in terminal
     print(table)
 
-    # Save results in parent_dir/results.md
+    # Save results
     save_file = os.path.join(args.parent_dir, "{}".format(args.save_file))
     with open(save_file, 'w') as f:
         f.write(table)
+
