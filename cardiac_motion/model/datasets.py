@@ -26,6 +26,8 @@ class CardiacMR_2D_UKBB(data.Dataset):
             if path.exists(path.join(data_path, subj_dir, seq+'.nii.gz')) \
                     and path.exists(path.join(data_path, subj_dir, seq + '_ED.nii.gz')):
                 self.dir_list += [subj_dir]
+            else:
+                raise RuntimeError(f'Data path does not exist: {self.data_path}')
 
     def __getitem__(self, index):
         """

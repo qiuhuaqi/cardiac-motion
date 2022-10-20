@@ -6,9 +6,9 @@
     "reg_weight": 1e-4,
     "learning_rate": 1e-4,
 
-    "train_data_path": "../data/ukbb/train",
-    "val_data_path": "../data/ukbb/val",
-    "eval_data_path": "../data/ukbb/test",
+    "train_data_path": "../data/cardiac_ukbb_stacom19/train",
+    "val_data_path": "../data/cardiac_ukbb_stacom19/val",
+    "eval_data_path": "../data/cardiac_ukbb_stacom19/test",
     "seq": "sa",
     "label_prefix": "label",
 
