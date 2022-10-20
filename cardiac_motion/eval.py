@@ -226,6 +226,7 @@ if __name__ == '__main__':
 
     parser.add_argument('--num_workers',
                         default=8,
+                        type=int,
                         help='Number of dataloader workers, 0 for main process only')
 
     args = parser.parse_args()

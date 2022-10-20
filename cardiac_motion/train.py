@@ -1,5 +1,6 @@
 from tqdm import tqdm
 import os
+import shutil
 import argparse
 import logging
 import numpy as np
@@ -181,7 +182,6 @@ def train_and_validate(model, optimizer, loss_fn, dataloaders, params):
     val_summary_writer.close()
 
 
-
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--model_dir',
@@ -204,7 +204,8 @@ if __name__ == '__main__':
                         help='Choose GPU')
 
     parser.add_argument('--num_workers',
-                        default=8,
+                        default=0,
+                        type=int,
                         help='Number of dataloader workers, 0 for main process only')
 
     args = parser.parse_args()
@@ -231,10 +232,12 @@ if __name__ == '__main__':
 
     # load setting parameters from a JSON file
     json_path = os.path.join(args.model_dir, 'params.json')
-    assert os.path.isfile(json_path), "No JSON configuration file found at {}".format(json_path)
+    if not os.path.exists(json_path):
+        logging.info(f"No JSON configuration file found at {json_path}, initialising with default params.json...")
+        default_json_path = f"{os.getcwd()}/params.json"
+        shutil.copy(default_json_path, json_path)
     params = xutils.Params(json_path)
     """"""
-
 
     """
     Data
