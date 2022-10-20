@@ -17,8 +17,7 @@ from utils.metrics import categorical_dice_stack, contour_distances_stack, detJa
 from utils import xutils
 
 
-
-def evaluate(model, dataloader, params, args, val):
+def test(model, dataloader, params, args, val):
     """
     Evaluate the model on the test dataset
     Returns metrics as a dict and evaluation loss
@@ -65,10 +64,10 @@ def evaluate(model, dataloader, params, args, val):
 
             with torch.no_grad():
                 # compute optical flow and warped ED images towards ES
-                op_flow = model(image_ed_batch, image_es_batch)
+                dvf = model(image_ed_batch, image_es_batch)
 
                 # transform label mask of ES frame
-                warped_label_es_batch = resample_transform(label_es_batch.float(), op_flow, interp='nearest')
+                warped_label_es_batch = resample_transform(label_es_batch.float(), dvf, interp='nearest')
 
 
             """ Move data to device """
@@ -77,12 +76,12 @@ def evaluate(model, dataloader, params, args, val):
                 # (the axis permutation is to comply with metric calculation code which takes input shape H, W, N)
                 warped_label_es_batch = warped_label_es_batch.squeeze(1).cpu().numpy().transpose(1, 2, 0)
                 label_ed_batch = label_ed_batch.squeeze(0).numpy().transpose(1, 2, 0)
-                op_flow = op_flow.data.cpu().numpy().transpose(0, 2, 3, 1)  # (N, H, W, 2)
+                dvf = dvf.data.cpu().numpy().transpose(0, 2, 3, 1)  # (N, H, W, 2)
             else:
                 # CPU version of the code
                 warped_label_es_batch = warped_label_es_batch.squeeze(1).numpy().transpose(1, 2, 0)
                 label_ed_batch = label_ed_batch.squeeze(0).numpy().transpose(1, 2, 0)
-                op_flow = op_flow.data.numpy().transpose(0, 2, 3, 1)  # (N, H, W, 2)
+                dvf = dvf.data.numpy().transpose(0, 2, 3, 1)  # (N, H, W, 2)
             """"""
 
             """ Calculate the metrics (only works with SAX images) """
@@ -96,7 +95,7 @@ def evaluate(model, dataloader, params, args, val):
 
                 warped_label_es_batch = warped_label_es_batch[:, :, slices_idx]
                 label_ed_batch = label_ed_batch[:, :, slices_idx]
-                op_flow = op_flow[slices_idx, :, :, :]  # needed for detJac
+                dvf = dvf[slices_idx, :, :, :]  # needed for detJac
 
             # dice
             dice_lv = categorical_dice_stack(warped_label_es_batch, label_ed_batch, label_class=1)
@@ -113,7 +112,7 @@ def evaluate(model, dataloader, params, args, val):
             mcd_rv, hd_rv = contour_distances_stack(warped_label_es_batch, label_ed_batch, label_class=3, dx=params.pixel_size)
 
             # determinant of Jacobian
-            mean_grad_detJ, mean_negative_detJ = detJac_stack(op_flow)
+            mean_grad_detJ, mean_negative_detJ = detJac_stack(dvf)
 
 
             # update buffers
@@ -201,7 +200,6 @@ def evaluate(model, dataloader, params, args, val):
     return metrics
 
 
-
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
@@ -249,7 +247,6 @@ if __name__ == '__main__':
 
     # check whether the trained model exists
     assert os.path.exists(args.model_dir), f"No model dir found at {args.model_dir}"
-
 
     # load setting parameters from a JSON file
     json_path = os.path.join(args.model_dir, 'params.json')
@@ -300,6 +297,6 @@ if __name__ == '__main__':
     Run the evaluation and calculate the metrics 
     """
     logging.info("Running evaluation...")
-    evaluate(model, eval_dataloader, params, args, val=False)
+    test(model, eval_dataloader, params, args, val=False)
     logging.info(f"Evaluation complete. Model: {args.model_dir}")
     """"""

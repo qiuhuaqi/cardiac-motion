@@ -15,7 +15,7 @@ from model.dataset_utils import CenterCrop, Normalise, ToTensor
 from model.datasets import CardiacMR_2D_UKBB, CardiacMR_2D_Eval_UKBB
 from model.submodules import resample_transform
 
-from eval import evaluate
+from test import test
 from utils import xutils, flow_utils
 
 
@@ -63,8 +63,6 @@ def train(model, optimizer, loss_fn, dataloader, params, epoch, summary_writer):
             # update tqdm, show the loss value after the progress bar
             t.set_postfix(loss='{:05.3f}'.format(loss.data))
             t.update()
-
-
 
             # save visualisation of training results
             if (epoch + 1) % params.save_result_epochs == 0 or (epoch + 1) == params.num_epochs:
@@ -131,7 +129,7 @@ def train_and_validate(model, optimizer, loss_fn, dataloaders, params):
         # validation
         if (epoch + 1) % params.val_epochs == 0 or (epoch + 1) == params.num_epochs:
             logging.info("Validating at epoch: {} ...".format(epoch + 1))
-            val_metrics = evaluate(model, val_dataloader, params, args, val=True)
+            val_metrics = test(model, val_dataloader, params, args, val=True)
 
             # save the most recent results in a JSON file
             save_path = os.path.join(args.model_dir, f"val_results_last_3slices_{not args.all_slices}.json")
