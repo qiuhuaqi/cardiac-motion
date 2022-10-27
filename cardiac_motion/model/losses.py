@@ -5,6 +5,7 @@ import torch.nn as nn
 
 from model.submodules import resample_transform
 
+
 def diffusion_loss(dvf):
     """
     Calculate diffusion loss as a regularisation on the displacement vector field (DVF)

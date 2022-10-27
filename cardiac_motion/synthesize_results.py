@@ -30,6 +30,7 @@ def aggregate_metrics(parent_dir, metrics):
         else:
             aggregate_metrics(os.path.join(parent_dir, subdir), metrics)
 
+
 def metrics_to_table(metrics):
     # Get the headers from the first subdir. Assumes everything has the same metrics
     headers = metrics[list(metrics.keys())[0]].keys()
@@ -52,7 +53,6 @@ def metrics_to_table(metrics):
         table += [table_line]
     res = tabulate(table, headers_clean, tablefmt='pipe')
     return res
-
 
 
 if __name__ == "__main__":
