@@ -1,9 +1,6 @@
 {
     "network": "BaseNet",
-    "sim_loss": "MSE",
-    "reg_loss": "huber_spt",
-    "sim_weight": 1.0,
-    "reg_weight": 1.5,
+    "reg_weight": 1,
     "learning_rate": 1e-4,
 
     "train_data_path": "../data/cardiac_ukbb_stacom19/train",
