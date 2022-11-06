@@ -180,7 +180,7 @@ def evaluate_per_batch(warped_label_es_batch, label_ed_batch, dvf, pixel_size=1.
 
     # dvf regularity and smoothness metrics
     (
-        metric_results["mean_grad_detJ"],
+        metric_results["mean_mag_grad_detJ"],
         metric_results["negative_detJ"],
     ) = detJac_stack(dvf)
     return metric_results
@@ -260,8 +260,9 @@ if __name__ == "__main__":
     model = model.to(device=args.device)
 
     # load network parameters from saved checkpoint
-    logging.info(f"Loading model from saved file: \n\t{os.path.join(args.model_dir, args.restore_file)}")
-    xutils.load_checkpoint(os.path.join(args.model_dir, args.restore_file), model)
+    if not args.no_inference:
+        logging.info(f"Loading model from saved file: \n\t{os.path.join(args.model_dir, args.restore_file)}")
+        xutils.load_checkpoint(os.path.join(args.model_dir, args.restore_file), model)
 
     logging.info("Start running testing...")
     if args.no_inference:
