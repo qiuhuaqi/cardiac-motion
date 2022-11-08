@@ -117,6 +117,15 @@ def test(
             metric_results_mean_std[f"{metric}_mean"] = np.mean(result_list)
             metric_results_mean_std[f"{metric}_std"] = np.std(result_list)
 
+        # calculate the segmentation metric average over structures
+        for metric in SEG_METRICS:
+            metric_results_mean_std[f"{metric}_mean"] = np.nanmean(
+                [
+                    metric_results_mean_std[k] if metric in k and "_mean" in k else np.NAN
+                    for k in metric_results_mean_std.keys()
+                ]
+            )
+
         if save_metric_results:
             # save all metrics evaluated for all test subjects in pandas dataframe
             test_result_dir = os.path.join(model_dir, "test_results")
