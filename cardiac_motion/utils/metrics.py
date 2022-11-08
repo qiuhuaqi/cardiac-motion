@@ -1,6 +1,7 @@
 """Metrics"""
 
 import numpy as np
+import torch
 import cv2
 from scipy.spatial.distance import directed_hausdorff
 import SimpleITK as sitk
@@ -29,13 +30,13 @@ def contour_distances_2d(image1, image2, dx=1):
     image2 = np.ascontiguousarray(image2, dtype=np.uint8)
 
     # extract contour points and stack the contour points into (N, 2)
-    contours1, _ = cv2.findContours(image1.astype('uint8'), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+    contours1, _ = cv2.findContours(image1.astype("uint8"), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
     contour1_pts = np.array(contours1[0])[:, 0, :]
     for i in range(1, len(contours1)):
         cont1_arr = np.array(contours1[i])[:, 0, :]
         contour1_pts = np.vstack([contour1_pts, cont1_arr])
 
-    contours2, _ = cv2.findContours(image2.astype('uint8'), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+    contours2, _ = cv2.findContours(image2.astype("uint8"), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
     contour2_pts = np.array(contours2[0])[:, 0, :]
     for i in range(1, len(contours2)):
         cont2_arr = np.array(contours2[i])[:, 0, :]
@@ -73,11 +74,11 @@ def contour_distances_stack(stack1, stack2, label_class, dx=1):
     """
 
     # assert the two stacks has the same number of slices
-    assert stack1.shape[-1] == stack2.shape[-1], 'Contour dist error: two stacks has different number of slices'
+    assert stack1.shape[-1] == stack2.shape[-1], "Contour dist error: two stacks has different number of slices"
 
     # mask by class
-    stack1 = (stack1 == label_class).astype('uint8')
-    stack2 = (stack2 == label_class).astype('uint8')
+    stack1 = (stack1 == label_class).astype("uint8")
+    stack2 = (stack2 == label_class).astype("uint8")
 
     mcd_buffer = []
     hd_buffer = []
@@ -120,7 +121,6 @@ def categorical_dice_stack(mask1, mask2, label_class=0):
     dice = np.mean(2 * pos1and2 / (pos1or2 + 1e-3))
 
     return dice
-
 
 
 def categorical_dice_volume(mask1, mask2, label_class=0):
@@ -170,7 +170,7 @@ def computeJacobianDeterminant2D(flow, rescaleFlow=True, save_path=None):
     """
     if rescaleFlow:
         # scale the deformation field to convert coordinate system from [-1, 1] range to pixel number
-        flow = flow * np.asarray((flow.shape[0] / 2., flow.shape[1] / 2.))
+        flow = flow * np.asarray((flow.shape[0] / 2.0, flow.shape[1] / 2.0))
 
     # calculate det Jac using SimpleITK
     flow_img = sitk.GetImageFromArray(flow, isVector=True)
@@ -179,16 +179,23 @@ def computeJacobianDeterminant2D(flow, rescaleFlow=True, save_path=None):
 
     mean_grad_detJ = np.mean(np.abs(np.gradient(jac_det)))
     negative_detJ = np.sum((jac_det < 0)) / (jac_det.shape[0] * jac_det.shape[1])  # ratio of negative det(Jac)
-    
+
     # render and save det(Jac) image
     if save_path is not None:
-        spec = [(0, (0.0, 0.0, 0.0)), (0.000000001, (0.0, 0.2, 0.2)),
-                (0.12499999999, (0.0, 1.0, 1.0)), (0.125, (0.0, 0.0, 1.0)),
-                (0.25, (1.0, 1.0, 1.0)), (0.375, (1.0, 0.0, 0.0)),
-                (1, (0.94509803921568625, 0.41176470588235292, 0.07450980392156863))]
-        cmap = matplotlib.colors.LinearSegmentedColormap.from_list('detjac', spec)
-        save_path = os.path.join(save_path, 'detJ.png')
-        plt.imsave(save_path, jac_det, vmin=-1, vmax=7, cmap=cmap)  # vmin=-2., vmax=2., cmap='RdBu_r') # cmap=plt.cm.gray)
+        spec = [
+            (0, (0.0, 0.0, 0.0)),
+            (0.000000001, (0.0, 0.2, 0.2)),
+            (0.12499999999, (0.0, 1.0, 1.0)),
+            (0.125, (0.0, 0.0, 1.0)),
+            (0.25, (1.0, 1.0, 1.0)),
+            (0.375, (1.0, 0.0, 0.0)),
+            (1, (0.94509803921568625, 0.41176470588235292, 0.07450980392156863)),
+        ]
+        cmap = matplotlib.colors.LinearSegmentedColormap.from_list("detjac", spec)
+        save_path = os.path.join(save_path, "detJ.png")
+        plt.imsave(
+            save_path, jac_det, vmin=-1, vmax=7, cmap=cmap
+        )  # vmin=-2., vmax=2., cmap='RdBu_r') # cmap=plt.cm.gray)
         # plt.imshow(jac_det, vmin=-1, vmax=7, cmap=cmap)
         # plt.show()
     return jac_det, mean_grad_detJ, negative_detJ
@@ -219,3 +226,23 @@ def detJac_stack(flow_stack, rescaleFlow=True):
     negative_detJ_mean = np.mean(mean_negatvie_detJ_buffer)
 
     return mean_grad_detJ_mean, negative_detJ_mean
+
+
+from deepali.losses.functional import bending_energy
+
+
+def bending_energy_stack(flow_stack, rescaleFlow=False):
+    """
+    Bending energy of vector fields
+
+    Args:
+        flow_stack: Numpy array shaped ``(N, H, W, 2)``
+    """
+    if rescaleFlow:
+        # todo: test if rescaling flow makes a difference
+        # scale the deformation field to convert coordinate system from [-1, 1] range to pixel number
+        flow_stack = flow_stack * np.array([s / 2.0 for s in flow_stack.shape[1:3]])
+    flow_stack = flow_stack.transpose(0, 3, 1, 2)  # (N, 2, H, W)
+    flow_stack = torch.from_numpy(flow_stack)
+    be = bending_energy(flow_stack)
+    return float(be)
