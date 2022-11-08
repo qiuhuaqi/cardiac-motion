@@ -156,7 +156,7 @@ def train(model, optimizer, dataloaders, params):
 
             # determine if the best model
             is_best = False
-            current_one_metric = val_metrics["val_dice_mean"]  # use mean val dice to choose best model
+            current_one_metric = val_metrics["dice_mean"]  # use mean val dice to choose best model
             if epoch + 1 == params.val_epochs:  # first validation
                 best_one_metric = current_one_metric
             if current_one_metric >= best_one_metric:
