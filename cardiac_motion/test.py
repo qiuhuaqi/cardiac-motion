@@ -13,12 +13,12 @@ from model.networks import BaseNet
 from model.submodules import resample_transform
 from model.dataset_utils import CenterCrop, Normalise, ToTensor
 from model.datasets import CardiacMR_2D_Eval_UKBB
-from utils.metrics import categorical_dice_stack, contour_distances_stack, detJac_stack
+from utils.metrics import categorical_dice_stack, contour_distances_stack, detJac_stack, bending_energy_stack
 from utils import xutils
 
 STRUCTURES = ["lv", "myo", "rv"]
 SEG_METRICS = ["dice", "mcd", "hd"]
-DVF_METRICS = ["mean_mag_grad_detJ", "negative_detJ"]
+DVF_METRICS = ["mean_mag_grad_detJ", "negative_detJ", "bending_energy"]
 METRICS = [f"{metric}_{struct}" for metric in SEG_METRICS for struct in STRUCTURES] + DVF_METRICS
 
 
@@ -30,8 +30,8 @@ def test(
     all_slices=False,
     run_inference=True,
     run_eval=True,
-    save_output=True,
-    save_metric_results=True,
+    save_output=False,
+    save_metric_results=False,
     device=torch.device("cpu"),
 ):
     """Run model inference on test dataset"""
@@ -160,6 +160,8 @@ def test(
             jac_df = pd.DataFrame(data=jac_metric_data)
             jac_df.to_pickle(f"{test_result_dir}/test_Jacobian_results_3slices{not all_slices}.pkl")
 
+        return metric_results_mean_std
+
 
 def evaluate_per_batch(warped_label_es_batch, label_ed_batch, dvf, pixel_size=1.0):
     metric_results = {metric: 0.0 for metric in METRICS}
@@ -183,6 +185,8 @@ def evaluate_per_batch(warped_label_es_batch, label_ed_batch, dvf, pixel_size=1.
         metric_results["mean_mag_grad_detJ"],
         metric_results["negative_detJ"],
     ) = detJac_stack(dvf)
+    metric_results["bending_energy"] = bending_energy_stack(dvf)
+
     return metric_results
 
 

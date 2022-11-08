@@ -38,9 +38,7 @@ def train_epoch(model, optimizer, dataloader, params, epoch, summary_writer):
 
     with tqdm(total=len(dataloader)) as t:
         for it, (target, source) in enumerate(dataloader):
-            target = target.expand(
-                source.size()[1], -1, -1, -1
-            )  # (1, 1, H, W) to (seq_length, 1, H, W)
+            target = target.expand(source.size()[1], -1, -1, -1)  # (1, 1, H, W) to (seq_length, 1, H, W)
             source = source.permute(1, 0, 2, 3)  # (seq_length, 1, H, W)
             target, source = [x.to(device=args.device) for x in [target, source]]
 
@@ -61,9 +59,7 @@ def train_epoch(model, optimizer, dataloader, params, epoch, summary_writer):
 
             # save summary of loss every some steps
             if it % params.save_summary_steps == 0:
-                summary_writer.add_scalar(
-                    "loss", loss.data, global_step=epoch * len(dataloader) + it
-                )
+                summary_writer.add_scalar("loss", loss.data, global_step=epoch * len(dataloader) + it)
 
                 for loss_name, loss_value in losses.items():
                     summary_writer.add_scalar(
@@ -77,41 +73,29 @@ def train_epoch(model, optimizer, dataloader, params, epoch, summary_writer):
             t.update()
 
             # save visualisation of training results
-            if (epoch + 1) % params.save_result_epochs == 0 or (
-                epoch + 1
-            ) == params.num_epochs:
+            if (epoch + 1) % params.save_result_epochs == 0 or (epoch + 1) == params.num_epochs:
                 if it == len(dataloader) - 1:
 
                     # warp source image with full resolution dvf
                     warped_source = resample_transform(source, dvf)
 
                     # [dvf and warped source] -> cpu -> numpy array
-                    dvf_np = (
-                        dvf.data.cpu().numpy().transpose(0, 2, 3, 1)
-                    )  # (N, H, W, 2)
-                    warped_source = (
-                        warped_source.data.cpu().numpy()[:, 0, :, :] * 255
-                    )  # (N, H, W)
+                    dvf_np = dvf.data.cpu().numpy().transpose(0, 2, 3, 1)  # (N, H, W, 2)
+                    warped_source = warped_source.data.cpu().numpy()[:, 0, :, :] * 255  # (N, H, W)
 
                     # [input images] -> cpu -> numpy array -> [0, 255]
                     target = target.data.cpu().numpy()[:, 0, :, :] * 255  # (N, H, W)
-                    source = (
-                        source.data.cpu().numpy()[:, 0, :, :] * 255
-                    )  # (N, H, W), here N = frames -1
+                    source = source.data.cpu().numpy()[:, 0, :, :] * 255  # (N, H, W), here N = frames -1
 
                     # set up the result dir for this epoch
-                    save_result_dir = os.path.join(
-                        args.model_dir, "train_results", "epoch_{}".format(epoch + 1)
-                    )
+                    save_result_dir = os.path.join(args.model_dir, "train_results", "epoch_{}".format(epoch + 1))
                     if not os.path.exists(save_result_dir):
                         os.makedirs(save_result_dir)
 
                     # NOTE: the following code saves all N frames in a batch
                     # save dvf (hsv + quiver), target, source, warped source and error
                     # flow_utils.save_flow_hsv(op_flow, target, save_result_dir, fps=params.fps)
-                    flow_utils.save_warp_n_error(
-                        warped_source, target, source, save_result_dir, fps=params.fps
-                    )
+                    flow_utils.save_warp_n_error(warped_source, target, source, save_result_dir, fps=params.fps)
                     flow_utils.save_flow_quiver(
                         dvf_np * (target.shape[-1] / 2),
                         source,
@@ -152,19 +136,24 @@ def train(model, optimizer, dataloaders, params):
 
         # train the model for one epoch
         logging.info("Training...")
-        train_epoch(
-            model, optimizer, train_dataloader, params, epoch, train_summary_writer
-        )
+        train_epoch(model, optimizer, train_dataloader, params, epoch, train_summary_writer)
 
         # validation
         if (epoch + 1) % params.val_epochs == 0 or (epoch + 1) == params.num_epochs:
             logging.info("Validating at epoch: {} ...".format(epoch + 1))
-            val_metrics = test(model, val_dataloader, params, args, val=True)
+            val_metrics = test(
+                model,
+                val_dataloader,
+                args.model_dir,
+                pixel_size=params.pixel_size,
+                save_output=False,
+                run_eval=True,
+                save_metric_results=False,
+                device=args.device,
+            )
 
             # save the most recent results in a JSON file
-            save_path = os.path.join(
-                args.model_dir, f"val_results_last_3slices_{not args.all_slices}.json"
-            )
+            save_path = os.path.join(args.model_dir, f"val_results_last_3slices_{not args.all_slices}.json")
             xutils.save_dict_to_json(val_metrics, save_path)
 
             # calculate the metrics mean & std
@@ -215,25 +204,13 @@ def train(model, optimizer, dataloaders, params):
             logging.info("Mean val dice: {:05.3f}".format(val_metrics["val_dice_mean"]))
             logging.info("Mean val mcd: {:05.3f}".format(val_metrics["val_mcd_mean"]))
             logging.info("Mean val hd: {:05.3f}".format(val_metrics["val_hd_mean"]))
-            logging.info(
-                "Mean val negative detJ: {:05.3f}".format(
-                    val_metrics["negative_detJ_mean"]
-                )
-            )
-            logging.info(
-                "Mean val mag grad detJ: {:05.3f}".format(
-                    val_metrics["mean_mag_grad_detJ_mean"]
-                )
-            )
-            assert (
-                val_metrics["negative_detJ_mean"] <= 1
-            ), "Invalid det Jac: Ratio of folding points > 1"
+            logging.info("Mean val negative detJ: {:05.3f}".format(val_metrics["negative_detJ_mean"]))
+            logging.info("Mean val mag grad detJ: {:05.3f}".format(val_metrics["mean_mag_grad_detJ_mean"]))
+            assert val_metrics["negative_detJ_mean"] <= 1, "Invalid det Jac: Ratio of folding points > 1"
 
             # determine if the best model
             is_best = False
-            current_one_metric = val_metrics[
-                "val_dice_mean"
-            ]  # use mean val dice to choose best model
+            current_one_metric = val_metrics["val_dice_mean"]  # use mean val dice to choose best model
             if epoch + 1 == params.val_epochs:  # first validation
                 best_one_metric = current_one_metric
             if current_one_metric >= best_one_metric:
@@ -322,9 +299,7 @@ if __name__ == "__main__":
     # load setting parameters from a JSON file
     json_path = os.path.join(args.model_dir, "params.json")
     if not os.path.exists(json_path):
-        logging.info(
-            f"No JSON configuration file found at {json_path}, initialising with default params.json..."
-        )
+        logging.info(f"No JSON configuration file found at {json_path}, initialising with default params.json...")
         default_json_path = f"{os.getcwd()}/params.json"
         shutil.copy(default_json_path, json_path)
     params = xutils.Params(json_path)
@@ -337,9 +312,7 @@ if __name__ == "__main__":
         params.train_data_path,
         seq=params.seq,
         seq_length=params.seq_length,
-        transform=transforms.Compose(
-            [CenterCrop(params.crop_size), Normalise(), ToTensor()]
-        ),
+        transform=transforms.Compose([CenterCrop(params.crop_size), Normalise(), ToTensor()]),
     )
     dataloaders["train"] = DataLoader(
         train_dataset,
@@ -353,9 +326,7 @@ if __name__ == "__main__":
         params.val_data_path,
         seq=params.seq,
         label_prefix=params.label_prefix,
-        transform=transforms.Compose(
-            [CenterCrop(params.crop_size), Normalise(), ToTensor()]
-        ),
+        transform=transforms.Compose([CenterCrop(params.crop_size), Normalise(), ToTensor()]),
         label_transform=transforms.Compose([CenterCrop(params.crop_size), ToTensor()]),
     )
     dataloaders["val"] = DataLoader(
@@ -373,8 +344,6 @@ if __name__ == "__main__":
     optimizer = torch.optim.Adam(model.parameters(), lr=params.learning_rate)
 
     # run
-    logging.info(
-        "Starting training and validation for {} epochs.".format(params.num_epochs)
-    )
+    logging.info("Starting training and validation for {} epochs.".format(params.num_epochs))
     train(model, optimizer, dataloaders, params)
     logging.info("Training and validation complete.")
