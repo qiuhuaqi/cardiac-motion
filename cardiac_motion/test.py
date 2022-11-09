@@ -194,8 +194,7 @@ def evaluate_per_batch(warped_label_es_batch, label_ed_batch, dvf, pixel_size=1.
         metric_results["mean_mag_grad_detJ"],
         metric_results["negative_detJ"],
     ) = detJac_stack(dvf)
-    metric_results["bending_energy"] = bending_energy_stack(dvf)
-
+    metric_results["bending_energy"] = bending_energy_stack(dvf, rescaleFlow=True)
     return metric_results
 
 
