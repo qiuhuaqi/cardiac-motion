@@ -3,7 +3,6 @@ import os
 import shutil
 import argparse
 import logging
-import numpy as np
 
 import torch
 import torchvision.transforms as transforms

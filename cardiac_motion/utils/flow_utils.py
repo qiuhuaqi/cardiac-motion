@@ -36,12 +36,13 @@ def flow_line_integral(op_flow):
         else:
             # sample optical flow at current new_grid, then update new_grid by sampled offset
             # this line is unnecessarily complicated thanks to pytorch
-            new_grid += F.grid_sample(op_flow[fr, ...].unsqueeze(0), new_grid.unsqueeze(0).permute(0, 2, 3, 1)).squeeze(0)  # (2, H, W)
+            new_grid += F.grid_sample(op_flow[fr, ...].unsqueeze(0), new_grid.unsqueeze(0).permute(0, 2, 3, 1)).squeeze(
+                0
+            )  # (2, H, W)
         accum_flow += [new_grid - std_grid]
 
     accum_flow = torch.stack(accum_flow)  # (N, 2, H, W)
     return accum_flow
-
 
 
 def flow_to_hsv(opt_flow, max_mag=0.1, white_bg=False):
@@ -61,7 +62,7 @@ def flow_to_hsv(opt_flow, max_mag=0.1, white_bg=False):
 
     # hsv encoding
     hsv_flow = np.zeros((opt_flow.shape[0], opt_flow.shape[1], 3))
-    hsv_flow[..., 0] = ang*180/np.pi/2  # hue = angle
+    hsv_flow[..., 0] = ang * 180 / np.pi / 2  # hue = angle
     hsv_flow[..., 1] = 255.0  # saturation = 255
     hsv_flow[..., 2] = 255.0 * mag / max_mag
     # (wrong) hsv_flow[..., 2] = cv2.normalize(mag, None, 0, 255, cv2.NORM_MINMAX)
@@ -96,7 +97,9 @@ def blend_image_seq(images1, images2, alpha=0.7):
     elif images1.ndim > images2.ndim:
         images2 = np.repeat(images2[:, :, np.newaxis, :], images1.shape[2], axis=2)
 
-    assert images1.shape == images2.shape, "Blending: images being blended have different shapes, {} vs {}".format(images1.shape, images2.shape)
+    assert images1.shape == images2.shape, "Blending: images being blended have different shapes, {} vs {}".format(
+        images1.shape, images2.shape
+    )
     blended_images = (1 - alpha) * images1 + alpha * images2
 
     return blended_images.astype(np.uint8)
@@ -130,11 +133,11 @@ def save_flow_hsv(op_flow, background, save_result_dir, fps=20, max_mag=0.1):
     op_flow_hsv_blend = blend_image_seq(background.transpose(1, 2, 0), op_flow_hsv)
 
     # save gif and png
-    save_result_dir = os.path.join(save_result_dir, 'hsv_flow')
+    save_result_dir = os.path.join(save_result_dir, "hsv_flow")
     if not os.path.exists(save_result_dir):
         os.makedirs(save_result_dir)
-    save_gif(op_flow_hsv, os.path.join(save_result_dir, 'flow.gif'), fps=fps)
-    save_gif(op_flow_hsv_blend, os.path.join(save_result_dir, 'flow_blend.gif'), fps=fps)
+    save_gif(op_flow_hsv, os.path.join(save_result_dir, "flow.gif"), fps=fps)
+    save_gif(op_flow_hsv_blend, os.path.join(save_result_dir, "flow_blend.gif"), fps=fps)
     save_png(op_flow_hsv_blend, save_result_dir)
     print("HSV flow saved to: {}".format(save_result_dir))
 
@@ -152,31 +155,40 @@ def save_flow_quiver(op_flow, background, save_result_dir, scale=1, interval=3, 
     """
 
     # set up saving directory
-    save_result_dir = os.path.join(save_result_dir, 'quiver')
+    save_result_dir = os.path.join(save_result_dir, "quiver")
     if not os.path.exists(save_result_dir):
         os.makedirs(save_result_dir)
 
     # create mesh grid of vector origins
     # note: numpy uses x-y order in generating mesh grid, i.e. (x, y) = (w, h)
-    mesh_x, mesh_y = np.meshgrid(range(0, background.shape[1]-1, interval), range(0, background.shape[2]-1, interval))
+    mesh_x, mesh_y = np.meshgrid(
+        range(0, background.shape[1] - 1, interval), range(0, background.shape[2] - 1, interval)
+    )
 
     png_list = []
     for fr in range(background.shape[0]):
         fig, ax = plt.subplots(figsize=(5, 5))
-        ax = plt.imshow(background[fr, :, :], cmap='gray')
-        ax = plt.quiver(mesh_x, mesh_y,
-                        op_flow[fr, mesh_y, mesh_x, 1], op_flow[fr, mesh_y, mesh_x, 0],
-                        angles='xy', scale_units='xy', scale=scale, color='g')
-        save_path = os.path.join(save_result_dir, 'frame_{}.png'.format(fr))
-        plt.axis('off')
-        fig.savefig(save_path, bbox_inches='tight')
+        ax = plt.imshow(background[fr, :, :], cmap="gray")
+        ax = plt.quiver(
+            mesh_x,
+            mesh_y,
+            op_flow[fr, mesh_y, mesh_x, 1],
+            op_flow[fr, mesh_y, mesh_x, 0],
+            angles="xy",
+            scale_units="xy",
+            scale=scale,
+            color="g",
+        )
+        save_path = os.path.join(save_result_dir, "frame_{}.png".format(fr))
+        plt.axis("off")
+        fig.savefig(save_path, bbox_inches="tight")
         plt.close(fig)
 
         # read it back to make gif
         png_list += [imageio.imread(save_path)]
 
     # save gif
-    imageio.mimwrite(os.path.join(save_result_dir, 'quiver.gif'), png_list, fps=fps)
+    imageio.mimwrite(os.path.join(save_result_dir, "quiver.gif"), png_list, fps=fps)
     print("Flow quiver plots saved to: {}".format(save_result_dir))
 
 
@@ -204,13 +216,12 @@ def save_warp_n_error(warped_source, target, source, save_result_dir, fps=20):
     error = np.abs(warped_source - target)
     error_before = np.abs(source - target)
 
-    save_gif(error, os.path.join(save_result_dir, 'error.gif'), fps=fps)
-    save_gif(error_before, os.path.join(save_result_dir, 'error_before.gif'), fps=fps)
-    save_gif(target, os.path.join(save_result_dir, 'target.gif'), fps=fps)
-    save_gif(warped_source, os.path.join(save_result_dir, 'wapred_source.gif'), fps=fps)
-    save_gif(source, os.path.join(save_result_dir, 'source.gif'), fps=fps)
+    save_gif(error, os.path.join(save_result_dir, "error.gif"), fps=fps)
+    save_gif(error_before, os.path.join(save_result_dir, "error_before.gif"), fps=fps)
+    save_gif(target, os.path.join(save_result_dir, "target.gif"), fps=fps)
+    save_gif(warped_source, os.path.join(save_result_dir, "wapred_source.gif"), fps=fps)
+    save_gif(source, os.path.join(save_result_dir, "source.gif"), fps=fps)
     print("Warping and error saved to: {}".format(save_result_dir))
-
 
 
 def dof_to_dvf(target_img, dofin, dvfout, output_dir):
@@ -238,23 +249,27 @@ def dof_to_dvf(target_img, dofin, dvfout, output_dir):
 
     # generate the meshgrids
     mesh_x, mesh_y = np.meshgrid(range(0, nim.shape[0], 1), range(0, nim.shape[1], 1))
-    mesh_x = mesh_x.astype('float')
-    mesh_y = mesh_y.astype('float')
+    mesh_x = mesh_x.astype("float")
+    mesh_y = mesh_y.astype("float")
 
     # save both (x and y) into nifti files, using the target image header
     nim_meshx = nib.Nifti1Image(mesh_x, nim.affine)
-    meshx_path = '{0}/{1}_meshx.nii.gz'.format(output_dir, dvfout)
+    meshx_path = "{0}/{1}_meshx.nii.gz".format(output_dir, dvfout)
     nib.save(nim_meshx, meshx_path)
 
     nim_meshy = nib.Nifti1Image(mesh_y, nim.affine)
-    meshy_path = '{0}/{1}_meshy.nii.gz'.format(output_dir, dvfout)
+    meshy_path = "{0}/{1}_meshy.nii.gz".format(output_dir, dvfout)
     nib.save(nim_meshy, meshy_path)
 
     # use mirtk to transform it with DOF file as input
-    warped_meshx_path = '{0}/{1}_meshx_warped.nii.gz'.format(output_dir, dvfout)
-    warped_meshy_path = '{0}/{1}_meshy_warped.nii.gz'.format(output_dir, dvfout)
-    os.system('mirtk transform-image {0} {1} -dofin {2} -target {3}'.format(meshx_path, warped_meshx_path, dofin, target_img))
-    os.system('mirtk transform-image {0} {1} -dofin {2} -target {3}'.format(meshy_path, warped_meshy_path, dofin, target_img))
+    warped_meshx_path = "{0}/{1}_meshx_warped.nii.gz".format(output_dir, dvfout)
+    warped_meshy_path = "{0}/{1}_meshy_warped.nii.gz".format(output_dir, dvfout)
+    os.system(
+        "mirtk transform-image {0} {1} -dofin {2} -target {3}".format(meshx_path, warped_meshx_path, dofin, target_img)
+    )
+    os.system(
+        "mirtk transform-image {0} {1} -dofin {2} -target {3}".format(meshy_path, warped_meshy_path, dofin, target_img)
+    )
 
     # read in the generated mesh grid x and grid y
     warp_meshx = nib.load(warped_meshx_path).get_data()[:, :, 0]
@@ -267,10 +282,10 @@ def dof_to_dvf(target_img, dofin, dvfout, output_dir):
 
     # save flow to nifti
     ndvf = nib.Nifti1Image(dvf, nim.affine)
-    nib.save(ndvf, '{0}/{1}.nii.gz'.format(output_dir, dvfout))
+    nib.save(ndvf, "{0}/{1}.nii.gz".format(output_dir, dvfout))
 
     # clean up: remove all the mesh files
-    os.system('rm {0}/*mesh*'.format(output_dir))
+    os.system("rm {0}/*mesh*".format(output_dir))
 
     return dvf
 
@@ -294,4 +309,3 @@ def warp_numpy_cpu(source_img, dvf):
     warped_source_img = warped_source_img_tensor.numpy().transpose(2, 3, 0, 1)[..., 0]  # (H, W, N)
 
     return warped_source_img
-
