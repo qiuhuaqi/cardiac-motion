@@ -9,6 +9,7 @@ class CenterCrop(object):
     Expected input shape: (N, H, W)
     Expected output shape: (N, H', W')
     """
+
     def __init__(self, output_size=192):
         assert isinstance(output_size, (int, tuple))
         if isinstance(output_size, int):
@@ -24,17 +25,17 @@ class CenterCrop(object):
         if h < self.output_size[0]:
             h_before = (self.output_size[0] - h) // 2
             h_after = self.output_size[0] - h - h_before
-            image = np.pad(image, ((0 ,0), (h_before, h_after), (0, 0)), mode='constant')
+            image = np.pad(image, ((0, 0), (h_before, h_after), (0, 0)), mode="constant")
 
         if w < self.output_size[1]:
             w_before = (self.output_size[1] - w) // 2
             w_after = self.output_size[1] - w - w_before
-            image = np.pad(image, ((0, 0), (0, 0), (w_before, w_after)), mode='constant')
+            image = np.pad(image, ((0, 0), (0, 0), (w_before, w_after)), mode="constant")
 
         # then continue with normal cropping
         h, w = image.shape[-2:]  # update shape numbers after padding
-        h_start = h//2 - self.output_size[0]//2
-        w_start = w//2 - self.output_size[1]//2
+        h_start = h // 2 - self.output_size[0] // 2
+        w_start = w // 2 - self.output_size[1] // 2
 
         h_end = h_start + self.output_size[0]
         w_end = w_start + self.output_size[1]
@@ -52,11 +53,12 @@ class Normalise(object):
     If mode = 'max, normalise range to [0, 1]
     by setting mean = min(image), std = max(image) - min(image)
     """
-    def __init__(self, mode='max'):
+
+    def __init__(self, mode="max"):
         self.mode = mode
 
     def __call__(self, image):
-        if self.mode == 'max':
+        if self.mode == "max":
             mean = np.min(image)
             std = np.max(image) - np.min(image)
         else:
@@ -67,6 +69,6 @@ class Normalise(object):
 
 class ToTensor(object):
     """Convert ndarrays in sample to Tensors."""
+
     def __call__(self, image):
         return torch.from_numpy(image)
-

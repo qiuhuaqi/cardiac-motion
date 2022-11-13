@@ -11,7 +11,7 @@ from torch.utils.data import DataLoader
 from model.networks import BaseNet
 from model.losses import huber_loss_spatial
 from model.dataset_utils import CenterCrop, Normalise, ToTensor
-from model.datasets import CardiacMR_2D_UKBB, CardiacMR_2D_Eval_UKBB
+from model.datasets import CardiacMR_2D_UKBB, CardiacMR_2D_Eval_UKBB, CardiacMR_2D_UKBB_SynthDeform
 from model.submodules import resample_transform
 
 from test import test
@@ -36,20 +36,26 @@ def train_epoch(model, optimizer, dataloader, params, epoch, summary_writer):
     model.train()
 
     with tqdm(total=len(dataloader)) as t:
-        for it, (target, source) in enumerate(dataloader):
-            target = target.expand(source.size()[1], -1, -1, -1)  # (1, 1, H, W) to (seq_length, 1, H, W)
-            source = source.permute(1, 0, 2, 3)  # (seq_length, 1, H, W)
-            target, source = [x.to(device=args.device) for x in [target, source]]
+        for it, x_data in enumerate(dataloader):
+            # (N=seq_length, 1/2, H, W)
+            target = x_data["target"].permute(1, 0, 2, 3).to(device=args.device)
+            source = x_data["source"].permute(1, 0, 2, 3).to(device=args.device)
 
             # forward pass and compute loss
             dvf = model(target, source)
 
             # loss
-            warped_source = resample_transform(source, dvf)
-            sim_loss = torch.nn.MSELoss()(target, warped_source)
-            reg_loss = huber_loss_spatial(dvf) * params.reg_weight
-            loss = sim_loss + reg_loss
-            losses = {"mse": sim_loss, "huber_spatial": reg_loss}
+            mse_fn = torch.nn.MSELoss()
+            if args.supervised:
+                dvf_gt = x_data["dvf"].squeeze(0).to(device=args.device)
+                loss = mse_fn(dvf, dvf_gt)
+                losses = {"mse_dvf": loss}
+            else:
+                warped_source = resample_transform(source, dvf)
+                sim_loss = mse_fn(target, warped_source)
+                reg_loss = huber_loss_spatial(dvf) * params.reg_weight
+                loss = sim_loss + reg_loss
+                losses = {"mse": sim_loss, "huber_spatial": reg_loss}
 
             # backprop and update
             optimizer.zero_grad()
@@ -211,6 +217,12 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
+        "--supervised_synth",
+        action="store_true",
+        help="Supervised training with synthetic deformaiton ground truth if given",
+    )
+
+    parser.add_argument(
         "--restore_file",
         default=None,
         help="(Optional) Name of the file in --model_dir storing model to load before training",
@@ -225,6 +237,8 @@ if __name__ == "__main__":
     parser.add_argument("--no_cuda", action="store_true")
 
     parser.add_argument("--gpu", default=0, help="Choose GPU")
+
+    parser.add_argument("--seed", default=7, help="RNG seed")
 
     parser.add_argument(
         "--num_workers",
@@ -262,12 +276,21 @@ if __name__ == "__main__":
     logging.info("Setting up data loaders...")
     dataloaders = {}
 
-    train_dataset = CardiacMR_2D_UKBB(
-        params.train_data_path,
-        seq=params.seq,
-        seq_length=params.seq_length,
-        transform=transforms.Compose([CenterCrop(params.crop_size), Normalise(), ToTensor()]),
-    )
+    if args.supervised_synth:
+        train_dataset = CardiacMR_2D_UKBB_SynthDeform(
+            params.train_data_path,
+            seq=params.seq,
+            seq_length=params.seq_length,
+            transform=transforms.Compose([CenterCrop(params.crop_size), Normalise(), ToTensor()]),
+            seed=args.seed,
+        )
+    else:
+        train_dataset = CardiacMR_2D_UKBB(
+            params.train_data_path,
+            seq=params.seq,
+            seq_length=params.seq_length,
+            transform=transforms.Compose([CenterCrop(params.crop_size), Normalise(), ToTensor()]),
+        )
     dataloaders["train"] = DataLoader(
         train_dataset,
         batch_size=params.batch_size,

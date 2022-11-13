@@ -64,11 +64,10 @@ class CardiacMR_2D_UKBB(data.Dataset):
         image = image_raw[:, :, slice_num, :].transpose(2, 0, 1).astype(np.float32)
         image_ed = image_ed[:, :, slice_num]
 
-        ## define source and target images:
-        #   target images are copies of the ED frame (extended later in training code to make use of Pytorch view)
+        # target images are copies of the ED frame (extended later in training code to make use of Pytorch view)
         target = image_ed[np.newaxis, :, :]  # extend dim to (1, H, W)
 
-        #   source images are a sequence of params.seq_length frames
+        # source images are a sequence of params.seq_length frames
         if image.shape[0] > self.seq_length:
             start_frame_idx = random.randint(0, image.shape[0] - self.seq_length)
             end_frame_idx = start_frame_idx + self.seq_length
@@ -82,7 +81,9 @@ class CardiacMR_2D_UKBB(data.Dataset):
             target = self.transform(target)
             source = self.transform(source)
 
-        return target, source
+        # dev: expand target dimension (1, H, W) -> (N, H, W)
+        target = target.expand(source.size()[0], -1, -1)
+        return {"target": target, "source": source}
 
     def __len__(self):
         return len(self.dir_list)
@@ -293,7 +294,7 @@ class CardiacMR_2D_UKBB_SynthDeform(CardiacMR_2D_UKBB):
         warped_grid = [warped_grid[ndim - 1 - i] for i in range(ndim)]
         warped_grid = torch.stack(warped_grid, -1)  # (N, *size, dim)
 
-        return F.grid_sample(x, warped_grid, mode=interp_mode, align_corners=False)
+        return F.grid_sample(x, warped_grid, mode=interp_mode, align_corners=True)
 
     @classmethod
     def svf_exp(cls, flow, scale=1, steps=5, sampling="bilinear"):
@@ -329,16 +330,17 @@ class CardiacMR_2D_UKBB_SynthDeform(CardiacMR_2D_UKBB):
             zoom = [o / s for o, s in zip(gen_shape, sample_shape[2:])]
             if scale > 1:
                 gauss = torch.from_numpy(gauss)
-                gauss = F.interpolate(gauss, scale_factor=zoom, mode=zoom_mode)
+                gauss = F.interpolate(gauss, scale_factor=zoom, mode=zoom_mode, align_corners=True)
             svf += gauss
 
         # integrate, upsample
         dvf = self.svf_exp(svf)
-        dvf = F.interpolate(dvf, scale_factor=2, mode=zoom_mode) * 2
+        dvf = F.interpolate(dvf, scale_factor=2, mode=zoom_mode, align_corners=True) * 2
         return dvf
 
     def __getitem__(self, index):
-        target, source = super().__getitem__(index)
+        x_data = super().__getitem__(index)
+        target, source = x_data["target"], x_data["source"]
         out_shape = source.shape[1:]
         dvf = self._synthesis_deformation(
             out_shape,
@@ -348,4 +350,4 @@ class CardiacMR_2D_UKBB_SynthDeform(CardiacMR_2D_UKBB):
             num_batch=source.shape[0],
         )
         target = self.warp(source.unsqueeze(1), dvf, interp_mode="bilinear").squeeze(1)
-        return target, source, dvf
+        return {"target": target, "source": source, "dvf": dvf}
