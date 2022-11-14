@@ -232,12 +232,13 @@ class CardiacMR_2D_Inference_UKBB(data.Dataset):
 
 
 class CardiacMR_2D_UKBB_SynthDeform(CardiacMR_2D_UKBB):
-    def __init__(self, *args, scales=(8, 16, 32), min_std=0.0, max_std=1.0, seed=None, **kwargs):
+    def __init__(self, *args, scales=(8, 16, 32), min_std=0.0, max_std=1.0, seed=None, norm_dvf=True, **kwargs):
         super().__init__(*args, **kwargs)
         self.scales = scales
         self.min_std = min_std
         self.max_std = max_std
-        self.rand = np.random.default_rng(seed)
+        self.norm_dvf = norm_dvf
+        self.np_rand = np.random.default_rng(seed)  # set by worker_init_fn() passed to dataloader
 
     @staticmethod
     def normalise_disp(disp):
@@ -325,8 +326,8 @@ class CardiacMR_2D_UKBB_SynthDeform(CardiacMR_2D_UKBB):
             sample_shape = np.int32(np.ceil(gen_shape / scale))
             sample_shape = (num_batch, ndims, *sample_shape)
 
-            std = self.rand.uniform(min_std, max_std, size=sample_shape)
-            gauss = self.rand.normal(0, std, size=sample_shape)
+            std = self.np_rand.uniform(min_std, max_std, size=sample_shape)
+            gauss = self.np_rand.normal(0, std, size=sample_shape)
             zoom = [o / s for o, s in zip(gen_shape, sample_shape[2:])]
             if scale > 1:
                 gauss = torch.from_numpy(gauss)
@@ -336,6 +337,9 @@ class CardiacMR_2D_UKBB_SynthDeform(CardiacMR_2D_UKBB):
         # integrate, upsample
         dvf = self.svf_exp(svf)
         dvf = F.interpolate(dvf, scale_factor=2, mode=zoom_mode, align_corners=True) * 2
+
+        if self.norm_dvf:
+            dvf = self.normalise_disp(dvf)
         return dvf
 
     def __getitem__(self, index):

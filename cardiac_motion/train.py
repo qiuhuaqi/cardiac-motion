@@ -4,6 +4,8 @@ import shutil
 import argparse
 import logging
 
+import numpy as np
+
 import torch
 import torchvision.transforms as transforms
 from torch.utils.data import DataLoader
@@ -16,6 +18,8 @@ from model.submodules import resample_transform
 
 from test import test
 from utils import xutils, flow_utils
+
+torch.manual_seed(7)
 
 
 def train_epoch(model, optimizer, dataloader, params, epoch, summary_writer):
@@ -46,7 +50,7 @@ def train_epoch(model, optimizer, dataloader, params, epoch, summary_writer):
 
             # loss
             mse_fn = torch.nn.MSELoss()
-            if args.supervised:
+            if args.supervised_synth:
                 dvf_gt = x_data["dvf"].squeeze(0).to(device=args.device)
                 loss = mse_fn(dvf, dvf_gt)
                 losses = {"mse_dvf": loss}
@@ -208,6 +212,14 @@ def train(model, optimizer, dataloaders, params):
     val_summary_writer.close()
 
 
+def seed_numpy_rng(worker_id):
+    """Pytorch dataloader worker_init_fn to seed numpy rng differently for each worker"""
+    worker_info = torch.utils.data.get_worker_info()
+    seed = worker_info.seed
+    dataset = worker_info.dataset
+    dataset.np_rand = np.random.default_rng(seed)
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -297,6 +309,7 @@ if __name__ == "__main__":
         shuffle=False,
         num_workers=args.num_workers,
         pin_memory=args.cuda,
+        worker_init_fn=seed_numpy_rng,
     )
 
     val_dataset = CardiacMR_2D_Eval_UKBB(
