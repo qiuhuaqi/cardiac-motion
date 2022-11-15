@@ -266,14 +266,16 @@ class CardiacMR_2D_UKBB_SynthDeform(CardiacMR_2D_UKBB):
         return disp * norm_factors
 
     @classmethod
-    def warp(cls, x, disp, interp_mode="bilinear"):
+    def warp(cls, x, disp, interp_mode="bilinear", norm_disp=True):
         """
         Spatially transform an image by sampling at transformed locations (2D and 3D)
 
         Args:
             x: (Tensor float, shape (N, ndim, *sizes)) input image
-            disp: (Tensor float, shape (N, ndim, *sizes)) dense disp field in i-j-k order (NOT spatially normalised)
+            disp: (Tensor float, shape (N, ndim, *sizes)) dense displacement field in i-j-k order
             interp_mode: (string) mode of interpolation in grid_sample()
+            norm_disp: (bool) if True, normalise the disp to [-1, 1] from voxel number space before applying
+
         Returns:
             deformed x, Tensor of the same shape as input
         """
@@ -281,8 +283,8 @@ class CardiacMR_2D_UKBB_SynthDeform(CardiacMR_2D_UKBB):
         size = x.size()[2:]
         disp = disp.type_as(x)
 
-        # normalise disp to [-1, 1]
-        disp = cls.normalise_disp(disp)
+        if norm_disp:
+            disp = cls.normalise_disp(disp)
 
         # generate standard mesh grid
         grid = torch.meshgrid([torch.linspace(-1, 1, size[i]).type_as(disp) for i in range(ndim)])
@@ -302,7 +304,7 @@ class CardiacMR_2D_UKBB_SynthDeform(CardiacMR_2D_UKBB):
         """Exponential of velocity field by Scaling and Squaring"""
         disp = flow * (scale / (2**steps))
         for i in range(steps):
-            disp = disp + cls.warp(x=disp, disp=disp, interp_mode=sampling)
+            disp = disp + cls.warp(x=disp, disp=disp, interp_mode=sampling, norm_disp=True)
         return disp
 
     def _synthesis_deformation(
@@ -344,7 +346,7 @@ class CardiacMR_2D_UKBB_SynthDeform(CardiacMR_2D_UKBB):
 
     def __getitem__(self, index):
         x_data = super().__getitem__(index)
-        target, source = x_data["target"], x_data["source"]
+        source = x_data["source"]
         out_shape = source.shape[1:]
         dvf = self._synthesis_deformation(
             out_shape,
@@ -353,5 +355,5 @@ class CardiacMR_2D_UKBB_SynthDeform(CardiacMR_2D_UKBB):
             max_std=self.max_std,
             num_batch=source.shape[0],
         )
-        target = self.warp(source.unsqueeze(1), dvf, interp_mode="bilinear").squeeze(1)
+        target = self.warp(source.unsqueeze(1), dvf, interp_mode="bilinear", norm_disp=False).squeeze(1)
         return {"target": target, "source": source, "dvf": dvf}
