@@ -18,11 +18,12 @@ from model.submodules import resample_transform
 
 from test import test
 from utils import xutils, flow_utils
+from utils.visualise import visualise_result
 
 torch.manual_seed(7)
 
 
-def train_epoch(model, optimizer, dataloader, params, epoch, summary_writer):
+def train_epoch(model, optimizer, dataloader, args, params, epoch, summary_writer):
     """
     Train the model for one epoch.V
 
@@ -83,37 +84,55 @@ def train_epoch(model, optimizer, dataloader, params, epoch, summary_writer):
 
             # save visualisation of training results
             if (epoch + 1) % params.save_result_epochs == 0 or (epoch + 1) == params.num_epochs:
-                if it == len(dataloader) - 1:
-
+                if it == len(dataloader) - 1:  # at the end of the epoch
                     # warp source image with full resolution dvf
                     warped_source = resample_transform(source, dvf)
 
                     # [dvf and warped source] -> cpu -> numpy array
                     dvf_np = dvf.data.cpu().numpy().transpose(0, 2, 3, 1)  # (N, H, W, 2)
+                    dvf_np *= target.shape[-1] / 2
                     warped_source = warped_source.data.cpu().numpy()[:, 0, :, :] * 255  # (N, H, W)
 
                     # [input images] -> cpu -> numpy array -> [0, 255]
                     target = target.data.cpu().numpy()[:, 0, :, :] * 255  # (N, H, W)
                     source = source.data.cpu().numpy()[:, 0, :, :] * 255  # (N, H, W), here N = frames -1
 
-                    # set up the result dir for this epoch
-                    save_result_dir = os.path.join(args.model_dir, "train_results", "epoch_{}".format(epoch + 1))
-                    if not os.path.exists(save_result_dir):
-                        os.makedirs(save_result_dir)
+                    # # set up the result dir for this epoch
+                    # save_result_dir = os.path.join(args.model_dir, "train_results", "epoch_{}".format(epoch + 1))
+                    # if not os.path.exists(save_result_dir):
+                    #     os.makedirs(save_result_dir)
+                    #
+                    # # NOTE: the following code saves all N frames in a batch
+                    # # save dvf (hsv + quiver), target, source, warped source and error
+                    # # flow_utils.save_flow_hsv(op_flow, target, save_result_dir, fps=params.fps)
+                    # flow_utils.save_warp_n_error(warped_source, target, source, save_result_dir, fps=params.fps)
+                    # flow_utils.save_flow_quiver(
+                    #     dvf_np,
+                    #     source,
+                    #     save_result_dir,
+                    #     fps=params.fps,
+                    # )
 
-                    # NOTE: the following code saves all N frames in a batch
-                    # save dvf (hsv + quiver), target, source, warped source and error
-                    # flow_utils.save_flow_hsv(op_flow, target, save_result_dir, fps=params.fps)
-                    flow_utils.save_warp_n_error(warped_source, target, source, save_result_dir, fps=params.fps)
-                    flow_utils.save_flow_quiver(
-                        dvf_np * (target.shape[-1] / 2),
-                        source,
-                        save_result_dir,
-                        fps=params.fps,
+                    # visualise in Tensorboard
+                    vis_data_dict = {
+                        "target": target[:, np.newaxis, ...],
+                        "source": source[:, np.newaxis, ...],
+                        "target_original": source[:, np.newaxis, ...],
+                        "target_pred": warped_source[:, np.newaxis, ...],
+                        "warped_source": warped_source[:, np.newaxis, ...],
+                        "disp_pred": dvf_np.transpose(0, 3, 1, 2),
+                    }
+
+                    if "dvf" in x_data.keys():
+                        vis_data_dict["disp_gt"] = x_data["dvf"].squeeze(0).numpy() * target.shape[-1] / 2
+
+                    train_fig = visualise_result(data_dict=vis_data_dict)
+                    summary_writer.add_figure(
+                        "training_fig", train_fig, global_step=epoch * len(dataloader) + it, close=True
                     )
 
 
-def train(model, optimizer, dataloaders, params):
+def train(model, optimizer, dataloaders, args, params):
     """
     Train the model and evaluate every epoch.
 
@@ -145,7 +164,7 @@ def train(model, optimizer, dataloaders, params):
 
         # train the model for one epoch
         logging.info("Training...")
-        train_epoch(model, optimizer, train_dataloader, params, epoch, train_summary_writer)
+        train_epoch(model, optimizer, train_dataloader, args, params, epoch, train_summary_writer)
 
         # validation
         if (epoch + 1) % params.val_epochs == 0 or (epoch + 1) == params.num_epochs:
@@ -158,6 +177,8 @@ def train(model, optimizer, dataloaders, params):
                 save_output=False,
                 run_eval=True,
                 save_metric_results=False,
+                log_visual_tb=True,
+                summary_writer=val_summary_writer,
                 device=args.device,
             )
 
@@ -335,5 +356,5 @@ if __name__ == "__main__":
 
     # run
     logging.info("Starting training and validation for {} epochs.".format(params.num_epochs))
-    train(model, optimizer, dataloaders, params)
+    train(model, optimizer, dataloaders, args, params)
     logging.info("Training and validation complete.")

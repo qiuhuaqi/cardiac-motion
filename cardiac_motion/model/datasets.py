@@ -232,7 +232,7 @@ class CardiacMR_2D_Inference_UKBB(data.Dataset):
 
 
 class CardiacMR_2D_UKBB_SynthDeform(CardiacMR_2D_UKBB):
-    def __init__(self, *args, scales=(8, 16, 32), min_std=0.0, max_std=1.0, seed=None, norm_dvf=True, **kwargs):
+    def __init__(self, *args, scales=(8, 16, 32), min_std=0.0, max_std=2.0, seed=None, norm_dvf=True, **kwargs):
         super().__init__(*args, **kwargs)
         self.scales = scales
         self.min_std = min_std

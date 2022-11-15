@@ -15,6 +15,7 @@ from model.dataset_utils import CenterCrop, Normalise, ToTensor
 from model.datasets import CardiacMR_2D_Eval_UKBB
 from utils.metrics import categorical_dice_stack, contour_distances_stack, detJac_stack, bending_energy_stack
 from utils import xutils
+from utils.visualise import visualise_result
 
 STRUCTURES = ["lv", "myo", "rv"]
 SEG_METRICS = ["dice", "mcd", "hd"]
@@ -32,6 +33,8 @@ def test(
     run_eval=True,
     save_output=False,
     save_metric_results=False,
+    log_visual_tb=False,
+    summary_writer=None,
     device=torch.device("cpu"),
 ):
     """Run model inference on test dataset"""
@@ -63,12 +66,12 @@ def test(
             if run_inference:
                 # run model inference
                 with torch.no_grad():
-                    dvf = model(image_ed_batch, image_es_batch)
+                    dvf_pred = model(image_ed_batch, image_es_batch)
                     if save_output:
                         test_output_dir_subj = f"{test_output_dir}/{dataloader.dataset.dir_list[idx]}"
                         if not os.path.exists(test_output_dir_subj):
                             os.makedirs(test_output_dir_subj)
-                        dvf_save = dvf.detach().cpu().numpy()
+                        dvf_save = dvf_pred.detach().cpu().numpy()
                         np.save(f"{test_output_dir_subj}/dvf.npy", dvf_save)
             else:
                 # load saved output from disk
@@ -77,15 +80,29 @@ def test(
                 ), f"Test output dir {test_output_dir} doesn't exist, have you run inference? "
                 test_output_dir_subj = f"{test_output_dir}/{dataloader.dataset.dir_list[idx]}"
                 dvf_loaded = np.load(f"{test_output_dir_subj}/dvf.npy")
-                dvf = torch.from_numpy(dvf_loaded).to(device)
+                dvf_pred = torch.from_numpy(dvf_loaded).to(device)
 
             # transform label mask of ES frame
-            warped_label_es_batch = resample_transform(label_es_batch.float(), dvf, interp="nearest")
+            warped_label_es_batch = resample_transform(label_es_batch.float(), dvf_pred, interp="nearest")
 
             # Move data to cpu and numpy
             warped_label_es_batch = warped_label_es_batch.squeeze(1).cpu().numpy().transpose(1, 2, 0)  # (H, W, N)
             label_ed_batch = label_ed_batch.squeeze(0).numpy().transpose(1, 2, 0)  # (H, W, N)
-            dvf = dvf.data.cpu().numpy().transpose(0, 2, 3, 1)  # (N, H, W, 2)
+            dvf = dvf_pred.data.cpu().numpy().transpose(0, 2, 3, 1)  # (N, H, W, 2)
+
+            # visualise in Tensorboard
+            if log_visual_tb:
+                warped_source = resample_transform(image_es_batch, dvf_pred)
+                vis_data_dict = {
+                    "target": image_ed_batch.cpu().numpy(),
+                    "source": image_es_batch.cpu().numpy(),
+                    "target_original": image_es_batch.cpu().numpy(),
+                    "target_pred": warped_source.cpu().numpy(),
+                    "warped_source": warped_source.cpu().numpy(),
+                    "disp_pred": dvf.transpose(0, 3, 1, 2) * image_ed_batch.shape[-1] / 2,
+                }
+                fig = visualise_result(vis_data_dict)
+                summary_writer.add_figure("val_test_fig", fig, close=True)
 
             if run_eval:
                 if not all_slices:
