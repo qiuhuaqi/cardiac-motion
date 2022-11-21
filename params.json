@@ -16,9 +16,9 @@
     "pixel_size": 1.8,
 
     "save_checkpoint_epochs": 10,
-    "val_epochs": 1,
+    "val_epochs": 10,
     "save_summary_steps": 1,
-    "save_result_epochs": 1,
+    "save_result_epochs": 10,
     "fps": 20
 }
 

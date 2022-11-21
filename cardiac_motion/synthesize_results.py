@@ -18,9 +18,9 @@ def aggregate_metrics(parent_dir, metrics):
         metrics: (dict) subdir -> {'accuracy': ..., ...}
     """
     # Get the metrics for the folder if it has results from an experiment
-    metrics_file = os.path.join(parent_dir, '{}'.format(args.result_file))
+    metrics_file = os.path.join(parent_dir, "{}".format(args.result_file))
     if os.path.isfile(metrics_file):
-        with open(metrics_file, 'r') as f:
+        with open(metrics_file, "r") as f:
             metrics[parent_dir] = json.load(f)
 
     # Check every subdirectory of parent_dir recursively
@@ -35,8 +35,8 @@ def metrics_to_table(metrics):
     # Get the headers from the first subdir. Assumes everything has the same metrics
     headers = metrics[list(metrics.keys())[0]].keys()
 
-    # list of headers without "mean" and "std"
-    headers_clean = ["_".join(h.split("_")[:-1]) for h in headers][0:-1:2]
+    # list of headers without "mean" and "std", ignoring overall means
+    headers_clean = ["_".join(h.split("_")[:-1]) for h in headers][0:-3:2]
 
     table = []
     for subdir, values in metrics.items():
@@ -49,27 +49,27 @@ def metrics_to_table(metrics):
             elif h.split("_")[-1] == "std":
                 std_list += [values[h]]
 
-        table_line = [subdir] + ["{mean:.3g}({std:.3g})".format(mean=mean_list[i], std=std_list[i]) for i in range(len(headers_clean))]
+        table_line = [subdir] + [
+            "{mean:.3g}({std:.3g})".format(mean=mean_list[i], std=std_list[i]) for i in range(len(headers_clean))
+        ]
         table += [table_line]
-    res = tabulate(table, headers_clean, tablefmt='pipe')
+    res = tabulate(table, headers_clean, tablefmt="pipe")
     return res
 
 
 if __name__ == "__main__":
-    
+
     parser = argparse.ArgumentParser()
-    parser.add_argument('--parent_dir', 
-                        default=None,
-                        help='Directory containing the model dir of experiments.')
-    
-    parser.add_argument('--result_file', 
-                        default='test_results_best.json',
-                        help='Name of the JSON file storing metric results.')
-    
-    parser.add_argument('--save_file', 
-                        default='test_results.csv',
-                        help='Name of the file to save the collected metric results.')
-    
+    parser.add_argument("--parent_dir", default=None, help="Directory containing the model dir of experiments.")
+
+    parser.add_argument(
+        "--result_file", default="test_results_best.json", help="Name of the JSON file storing metric results."
+    )
+
+    parser.add_argument(
+        "--save_file", default="test_results.csv", help="Name of the file to save the collected metric results."
+    )
+
     args = parser.parse_args()
 
     # Aggregate metrics from args.parent_dir directory
@@ -82,6 +82,5 @@ if __name__ == "__main__":
 
     # Save results
     save_file = os.path.join(args.parent_dir, "{}".format(args.save_file))
-    with open(save_file, 'w') as f:
+    with open(save_file, "w") as f:
         f.write(table)
-

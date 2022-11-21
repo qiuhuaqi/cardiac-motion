@@ -9,6 +9,7 @@ class BaseNet(nn.Module):
     The Network in paper:
     C. Qin et al., “Joint learning of motion estimation and segmentation for cardiac MR image sequences,” MICCAI 2018
     """
+
     def __init__(self, n_ch=1):
         super(BaseNet, self).__init__()
         self.conv_blocks1 = conv_blocks_2(n_ch, 64)
@@ -47,39 +48,39 @@ class BaseNet(nn.Module):
         # slice source and target images
         net = {}
 
-        net['conv1'] = self.conv_blocks1(source)
-        net['conv2'] = self.conv_blocks2(net['conv1'])
-        net['conv3'] = self.conv_blocks3(net['conv2'])
-        net['conv4'] = self.conv_blocks4(net['conv3'])
-        net['conv5'] = self.conv_blocks5(net['conv4'])
+        net["conv1"] = self.conv_blocks1(source)
+        net["conv2"] = self.conv_blocks2(net["conv1"])
+        net["conv3"] = self.conv_blocks3(net["conv2"])
+        net["conv4"] = self.conv_blocks4(net["conv3"])
+        net["conv5"] = self.conv_blocks5(net["conv4"])
 
-        net['conv1s'] = self.conv_blocks12(target)
-        net['conv2s'] = self.conv_blocks22(net['conv1s'])
-        net['conv3s'] = self.conv_blocks32(net['conv2s'])
-        net['conv4s'] = self.conv_blocks42(net['conv3s'])
-        net['conv5s'] = self.conv_blocks52(net['conv4s'])
+        net["conv1s"] = self.conv_blocks12(target)
+        net["conv2s"] = self.conv_blocks22(net["conv1s"])
+        net["conv3s"] = self.conv_blocks32(net["conv2s"])
+        net["conv4s"] = self.conv_blocks42(net["conv3s"])
+        net["conv5s"] = self.conv_blocks52(net["conv4s"])
 
-        net['concat1'] = torch.cat((net['conv1'], net['conv1s']), 1)
-        net['concat2'] = torch.cat((net['conv2'], net['conv2s']), 1)
-        net['concat3'] = torch.cat((net['conv3'], net['conv3s']), 1)
-        net['concat4'] = torch.cat((net['conv4'], net['conv4s']), 1)
-        net['concat5'] = torch.cat((net['conv5'], net['conv5s']), 1)
+        net["concat1"] = torch.cat((net["conv1"], net["conv1s"]), 1)
+        net["concat2"] = torch.cat((net["conv2"], net["conv2s"]), 1)
+        net["concat3"] = torch.cat((net["conv3"], net["conv3s"]), 1)
+        net["concat4"] = torch.cat((net["conv4"], net["conv4s"]), 1)
+        net["concat5"] = torch.cat((net["conv5"], net["conv5s"]), 1)
 
-        net['out1'] = self.conv1(net['concat1'])
-        net['out2'] = self.conv2(net['concat2'])
-        net['out3'] = self.conv3(net['concat3'])
-        net['out4'] = self.conv4(net['concat4'])
-        net['out5'] = self.conv5(net['concat5'])
+        net["out1"] = self.conv1(net["concat1"])
+        net["out2"] = self.conv2(net["concat2"])
+        net["out3"] = self.conv3(net["concat3"])
+        net["out4"] = self.conv4(net["concat4"])
+        net["out5"] = self.conv5(net["concat5"])
 
-        net['out2_up'] = F.interpolate(net['out2'], scale_factor=2, mode='bilinear', align_corners=True)
-        net['out3_up'] = F.interpolate(net['out3'], scale_factor=4, mode='bilinear', align_corners=True)
-        net['out4_up'] = F.interpolate(net['out4'], scale_factor=8, mode='bilinear', align_corners=True)
-        net['out5_up'] = F.interpolate(net['out5'], scale_factor=16, mode='bilinear', align_corners=True)
+        net["out2_up"] = F.interpolate(net["out2"], scale_factor=2, mode="bilinear", align_corners=True)
+        net["out3_up"] = F.interpolate(net["out3"], scale_factor=4, mode="bilinear", align_corners=True)
+        net["out4_up"] = F.interpolate(net["out4"], scale_factor=8, mode="bilinear", align_corners=True)
+        net["out5_up"] = F.interpolate(net["out5"], scale_factor=16, mode="bilinear", align_corners=True)
 
-        net['concat'] = torch.cat((net['out1'], net['out2_up'], net['out3_up'], net['out4_up'], net['out5_up']), 1)
-        net['comb_1'] = self.conv6(net['concat'])
-        net['comb_2'] = self.conv7(net['comb_1'])
+        net["concat"] = torch.cat((net["out1"], net["out2_up"], net["out3_up"], net["out4_up"], net["out5_up"]), 1)
+        net["comb_1"] = self.conv6(net["concat"])
+        net["comb_2"] = self.conv7(net["comb_1"])
 
-        net['dvf'] = torch.tanh(self.conv8(net['comb_2']))
+        net["dvf"] = torch.tanh(self.conv8(net["comb_2"]))
 
-        return net['dvf']
+        return net["dvf"]

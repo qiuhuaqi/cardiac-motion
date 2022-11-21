@@ -30,7 +30,6 @@ def train_epoch(model, optimizer, dataloader, args, params, epoch, summary_write
     Args:
         model: (torch.nn.Module instance) the neural network
         optimizer: (torch.optim instance) optimizer for parameters of model
-        loss_fn: a function that transforms image with dvf prediction and compute loss
         dataloader: (DataLoader instance) a torch.utils.data.DataLoader object that fetches training data
         params: (Params instance) configuration parameters
         epoch: (int) number of epoch this is training (for the summary writer)
@@ -88,14 +87,12 @@ def train_epoch(model, optimizer, dataloader, args, params, epoch, summary_write
                     # warp source image with full resolution dvf
                     warped_source = resample_transform(source, dvf)
 
-                    # [dvf and warped source] -> cpu -> numpy array
                     dvf_np = dvf.data.cpu().numpy().transpose(0, 2, 3, 1)  # (N, H, W, 2)
                     dvf_np *= target.shape[-1] / 2
-                    warped_source = warped_source.data.cpu().numpy()[:, 0, :, :] * 255  # (N, H, W)
+                    warped_source = warped_source.data.cpu().numpy()[:, 0, :, :]  # (N, H, W)
 
-                    # [input images] -> cpu -> numpy array -> [0, 255]
-                    target = target.data.cpu().numpy()[:, 0, :, :] * 255  # (N, H, W)
-                    source = source.data.cpu().numpy()[:, 0, :, :] * 255  # (N, H, W), here N = frames -1
+                    target = target.data.cpu().numpy()[:, 0, :, :]  # (N, H, W)
+                    source = source.data.cpu().numpy()[:, 0, :, :]  # (N, H, W), here N = frames -1
 
                     # # set up the result dir for this epoch
                     # save_result_dir = os.path.join(args.model_dir, "train_results", "epoch_{}".format(epoch + 1))
@@ -117,7 +114,6 @@ def train_epoch(model, optimizer, dataloader, args, params, epoch, summary_write
                     vis_data_dict = {
                         "target": target[:, np.newaxis, ...],
                         "source": source[:, np.newaxis, ...],
-                        "target_original": source[:, np.newaxis, ...],
                         "target_pred": warped_source[:, np.newaxis, ...],
                         "warped_source": warped_source[:, np.newaxis, ...],
                         "disp_pred": dvf_np.transpose(0, 3, 1, 2),
@@ -255,6 +251,8 @@ if __name__ == "__main__":
         help="Supervised training with synthetic deformaiton ground truth if given",
     )
 
+    parser.add_argument("--synth_max_std", default=2.0, type=float, help="Maximal std when synthesising deformation")
+
     parser.add_argument(
         "--restore_file",
         default=None,
@@ -312,6 +310,7 @@ if __name__ == "__main__":
     if args.supervised_synth:
         train_dataset = CardiacMR_2D_UKBB_SynthDeform(
             params.train_data_path,
+            max_std=args.synth_max_std,
             seq=params.seq,
             seq_length=params.seq_length,
             transform=transforms.Compose([CenterCrop(params.crop_size), Normalise(), ToTensor()]),
