@@ -179,9 +179,12 @@ class CardiacMR_2D_Eval_UKBB(data.Dataset):
         label_es = label_es.transpose(2, 0, 1)
 
         # transformation functions expect input shaped (N, H, W)
+        N = image_ed.shape[0]
+        images = np.concatenate((image_ed, image_es), axis=0)
         if self.transform:
-            image_ed = self.transform(image_ed)
-            image_es = self.transform(image_es)
+            images = self.transform(images)
+        image_ed = images[:N]
+        image_es = images[N:]
 
         if self.label_transform:
             label_ed = self.label_transform(label_ed)
@@ -266,7 +269,7 @@ class CardiacMR_2D_UKBB_SynthDeform(CardiacMR_2D_UKBB):
         return disp * norm_factors
 
     @classmethod
-    def warp(cls, x, disp, interp_mode="bilinear", norm_disp=True):
+    def warp(cls, x, disp, interp_mode="bilinear", norm_disp=True, align_corners=True):
         """
         Spatially transform an image by sampling at transformed locations (2D and 3D)
 
@@ -297,7 +300,7 @@ class CardiacMR_2D_UKBB_SynthDeform(CardiacMR_2D_UKBB):
         warped_grid = [warped_grid[ndim - 1 - i] for i in range(ndim)]
         warped_grid = torch.stack(warped_grid, -1)  # (N, *size, dim)
 
-        return F.grid_sample(x, warped_grid, mode=interp_mode, align_corners=True)
+        return F.grid_sample(x, warped_grid, mode=interp_mode, align_corners=align_corners)
 
     @classmethod
     def svf_exp(cls, flow, scale=1, steps=5, sampling="bilinear"):
