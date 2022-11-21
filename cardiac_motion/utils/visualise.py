@@ -19,7 +19,7 @@ def plot_warped_grid(ax, disp, bg_img=None, interval=3, title="$\mathcal{T}_\phi
     new_grid_H = id_grid_H + disp[0, id_grid_H, id_grid_W]
     new_grid_W = id_grid_W + disp[1, id_grid_H, id_grid_W]
 
-    kwargs = {"linewidth": 1.5, "color": color}
+    kwargs = {"linewidth": 1.0, "color": color}
     # matplotlib.plot() uses CV x-y indexing
     for i in range(new_grid_H.shape[0]):
         ax.plot(new_grid_W[i, :], new_grid_H[i, :], **kwargs)  # each draws a horizontal line
@@ -39,10 +39,19 @@ def plot_result_fig(vis_data_dict, save_path=None, title_font_size=20, dpi=100, 
     """Plot visual results in a single figure/subplots.
     Images should be shaped (*sizes)
     Disp should be shaped (ndim, *sizes)
-    vis_data_dict.keys() = ['target', 'source', 'target_original',
+    vis_data_dict.keys() = ['target', 'source', 'source_ref',
                             'target_pred', 'warped_source',
                             'disp_gt', 'disp_pred']
     """
+
+    # "source_ref" is source image for monomodal registration,
+    # or the image in target modality that's originally aligned with the source image if available
+    if "source_ref" not in vis_data_dict.keys():
+        vis_data_dict["source_ref"] = vis_data_dict["source"]
+
+    if "disp_gt" not in vis_data_dict.keys():
+        vis_data_dict["disp_gt"] = np.zeros_like(vis_data_dict["disp_pred"])
+
     fig = plt.figure(figsize=(30, 18))
     title_pad = 10
 
@@ -52,12 +61,12 @@ def plot_result_fig(vis_data_dict, save_path=None, title_font_size=20, dpi=100, 
     ax.set_title("Target", fontsize=title_font_size, pad=title_pad)
 
     ax = plt.subplot(2, 4, 2)
-    plt.imshow(vis_data_dict["target_original"], cmap="gray")
+    plt.imshow(vis_data_dict["source_ref"], cmap="gray")
     plt.axis("off")
-    ax.set_title("Target original", fontsize=title_font_size, pad=title_pad)
+    ax.set_title("Source reference", fontsize=title_font_size, pad=title_pad)
 
-    # calculate the error before and after reg
-    error_before = vis_data_dict["target"] - vis_data_dict["target_original"]
+    # calculate the error before and after registration
+    error_before = vis_data_dict["target"] - vis_data_dict["source_ref"]
     error_after = vis_data_dict["target"] - vis_data_dict["target_pred"]
 
     # error before
@@ -86,7 +95,7 @@ def plot_result_fig(vis_data_dict, save_path=None, title_font_size=20, dpi=100, 
 
     # warped grid: ground truth
     ax = plt.subplot(2, 4, 7)
-    bg_img = np.zeros_like(vis_data_dict["target"])
+    bg_img = vis_data_dict["source"]
     plot_warped_grid(ax, vis_data_dict["disp_gt"], bg_img, interval=3, title="$\phi_{GT}$", fontsize=title_font_size)
 
     # warped grid: prediction
@@ -150,10 +159,6 @@ def visualise_result(data_dict, axis=0, save_result_dir=None, epoch=None, dpi=50
             else:
                 # images
                 vis_data_dict[name] = d[0, 0, ...].take(z, axis=axis)  # (X, X)
-
-    # housekeeping: dummy dvf_gt for inter-subject case
-    if not "disp_gt" in data_dict.keys():
-        vis_data_dict["disp_gt"] = np.zeros_like(vis_data_dict["disp_pred"])
 
     # set up figure saving path
     if save_result_dir is not None:
