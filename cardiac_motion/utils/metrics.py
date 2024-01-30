@@ -178,7 +178,7 @@ def computeJacobianDeterminant2D(flow, rescaleFlow=True, save_path=None):
     jac_det = sitk.GetArrayFromImage(jac_det_filt)
 
     mean_grad_detJ = np.mean(np.abs(np.gradient(jac_det)))
-    negative_detJ = np.sum((jac_det < 0)) / (jac_det.shape[0] * jac_det.shape[1])  # ratio of negative det(Jac)
+    negative_detJ = np.sum((jac_det <= 0)) / (jac_det.shape[0] * jac_det.shape[1])  # ratio of negative det(Jac)
 
     # render and save det(Jac) image
     if save_path is not None:
